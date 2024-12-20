@@ -823,4 +823,32 @@ export async function searchMoviesByText(query: string): Promise<string[]> {
 
 ```
 
+## Ejecución del proyecto
+Para este proyecto es necesario ejecutar la api rest del back-end y el front-end de manera individual, comenzaré ejecutando el back-end.
+
+### Ejecución del back-end
+Realizo la ejecución de la api rest para hacer solicitudes.
+
+![Descripcion](app/imagenes/Captura6.PNG)
+
+### Ejecución del front-end
+Realizo la ejecución del front-end mediante el comando **npm run dev**
+
+![Descripcion](app/imagenes/Captura7.PNG)
+
+![Descripcion](app/imagenes/Captura8.PNG)
+
+### Uso del proyecto
+El proyecto tiene 3 secciones en las que se muestra los resultados que se obtienen de películas por los 3 métodos, el primero de ellos que explicaré es el de **Filtrado basado en contenido**. Que consta de enviar un nombre de película y recibe 5 títulos de películas
+
+![Descripcion](app/imagenes/Captura12.PNG)
+
+La siguiente sección es sobre el **Filtrado Colaborativo**, en está sección renvio un id de usuario y me envía 5 títulos de películas recomendadas.
+
+![Descripcion](app/imagenes/Captura13.PNG)
+
+La última sección es del buscador que recibirá un texto y me enviará 5 películas recomendadas en base a la busqueda
+
+![Descripcion](app/imagenes/Captura11.PNG)
+
 
