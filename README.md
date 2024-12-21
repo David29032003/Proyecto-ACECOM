@@ -136,7 +136,7 @@ rating_matrix = dataset2.pivot(index='id_usuario', columns='id_pelicula', values
 ### Entreno el modelo KNN
 Entreno el modelo KNN utilizando la matriz de ratings y la métrica de similitud coseno.
 ```python
-knn = NearestNeighbors(metric='cosine', algorithm='brute')
+knn = NearestNeighbors(metric='euclidean', algorithm='ball_tree')
 knn.fit(rating_matrix)
 ```
 
@@ -191,9 +191,9 @@ app = Flask(__name__)
 CORS(app)
 
 # Cargo los modelos preentrenados
-sentence_transformer = joblib.load(os.path.join(ruta_carpeta, 'sentence_transformer_model.pkl'))
-similitud_coseno = joblib.load(os.path.join(ruta_carpeta, 'similitud_coseno.pkl'))
-knn = joblib.load(os.path.join(ruta_carpeta, 'knn_model.pkl'))
+modelo_buscador = joblib.load(os.path.join(ruta_carpeta, 'modelo_buscador.pkl'))
+similitud_coseno = joblib.load(os.path.join(ruta_carpeta, 'matriz_similitud.pkl'))
+knn = joblib.load(os.path.join(ruta_carpeta, 'modelo_knn.pkl'))
 
 # Creo un conjunto de géneros únicos
 generos = set()
@@ -210,19 +210,17 @@ diccionario_pelicula = dict(zip(dataset2['id_pelicula'], dataset2['titulo_pelicu
 ### Función para obtener las recomendaciones basadas en contenido
 Mediante está función tomo el título de una película como parámetro y busco el indice correspondiente en **dataset1**, calculo la similitud coseno para ese título y devuelvo las 5 películas más similares.
 ```python
-def obtener_recomendaciones_contenido(titulo):
-    try:
-        # Obtengo el indice de la pelicula pasada por parametro
-        indice = dataset1[dataset1['Series_Title'] == titulo].index[0]
-        # enumero las similitudes en una lista
-        puntajes_similitud = list(enumerate(similitud_coseno[indice]))
-        # ordeno las similitudes en orden descendente
-        puntajes_similitud = sorted(puntajes_similitud, key=lambda x: x[1], reverse=True)
-        # obtengo los indices de las 10 peliculas con mayor similitud
-        indices_similares = [i[0] for i in puntajes_similitud[1:6]]
-        return dataset1['Series_Title'].iloc[indices_similares].tolist()
-    except IndexError:
-        return []
+def recomendaciones_contenido(titulo):
+    # Obtengo el indice de la pelicula pasada por parametro
+    indice = dataset1[dataset1['Series_Title'] == titulo].index[0]
+    # enumero las similitudes en una lista
+    puntajes_similitud = list(enumerate(similitud_coseno[indice]))
+    # ordeno las similitudes en orden descendente
+    puntajes_similitud = sorted(puntajes_similitud, key=lambda x: x[1], reverse=True)
+    # obtengo los indices de las 10 peliculas con mayor similitud
+    indices_similares = [i[0] for i in puntajes_similitud[1:6]]
+    return dataset1['Series_Title'].iloc[indices_similares].tolist()
+
 ```
 
 ### Función para obtener las recomendaciones colaborativas
@@ -230,10 +228,10 @@ Con está función obtengo las recomendaciones colaborativas de una matriz de ra
 ```python
 def obtener_recomendaciones_colaborativo(id_usuario, cantidad_recomendaciones=5):
     # Creo una matriz de usuarios-películas
-    rating_matrix = dataset2.pivot(index='id_usuario', columns='id_pelicula', values='rating').fillna(0)
+    matriz_rating = dataset2.pivot(index='id_usuario', columns='id_pelicula', values='rating').fillna(0)
 
     # Obtengo la fila del usuario en la matriz
-    usuario_vector = rating_matrix.loc[id_usuario].values.reshape(1, -1)
+    usuario_vector = matriz_rating.loc[id_usuario].values.reshape(1, -1)
 
     # Encuentro los usuarios más cercanos
     distancias, indices = knn.kneighbors(usuario_vector, n_neighbors=cantidad_recomendaciones + 1)
@@ -245,11 +243,11 @@ def obtener_recomendaciones_colaborativo(id_usuario, cantidad_recomendaciones=5)
     # Combino las recomendaciones de los usuarios similares
     peliculas_recomendadas = {}
     # Obtengo las películas vistas por el usuario
-    peliculas_vistas = rating_matrix.loc[id_usuario][rating_matrix.loc[id_usuario] > 0].index
+    peliculas_vistas = matriz_rating.loc[id_usuario][matriz_rating.loc[id_usuario] > 0].index
 
     for id_similar, distancia in zip(usuarios_similares, distancias_similares):
-        id_usuario_similar = rating_matrix.index[id_similar]
-        peliculas_similares = rating_matrix.loc[id_usuario_similar][rating_matrix.loc[id_usuario_similar] > 0]
+        id_usuario_similar = matriz_rating.index[id_similar]
+        peliculas_similares = matriz_rating.loc[id_usuario_similar][matriz_rating.loc[id_usuario_similar] > 0]
 
         for id_pelicula, rating in peliculas_similares.items():
             # Solo recomiendo películas no vistas por el usuario
@@ -306,14 +304,14 @@ def buscar_peliculas_con_embedding(texto):
     factor = 1.5
 
     # En caso en el texto haya generos o nombres de directores o nombres de actores se multiplica la similitud por un factor para aumentar la similitud
-    for idx, row in dataset1.iterrows():
+    for id, fila in dataset1.iterrows():
 
-        if row['Director'] in personas_mencionadas:
-            similitudes[0][idx] *= factor
-        movie_genres = [genre.strip().lower() for genre in row['Genre'].split(',')]
+        if fila['Director'] in personas_mencionadas:
+            similitudes[0][id] *= factor
+        movie_genres = [genre.strip().lower() for genre in fila['Genre'].split(',')]
         
         if any(genre in generos_texto for genre in movie_genres):
-            similitudes[0][idx] *= factor
+            similitudes[0][id] *= factor
 
     # Obtengo las películas
     indices_similares = similitudes[0].argsort()[-5:][::-1]
